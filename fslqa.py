@@ -1,21 +1,29 @@
-#!/usr/bin/env python
 """
 top-level wrapper for FSL quality assurance project
 
 """
 
+# make thigns as immutable as possible - use frozen sets
+
+# don't use import...as
+# don't use from...import
+
 import numpy as N
 import nibabel as nib
 import sys,os
 import argparse
+# read_fsl_design is badly named as it reads an fsf file
 from mvpa2.misc.fsl.base import read_fsl_design,FslEV3,FslGLMDesign
+import fnmatch, string
+
+
 
 ## {{{ http://code.activestate.com/recipes/52664/ (r2)
 def Walk( root, recurse=0, pattern='*', return_folders=0 ):
     """
     walk through a directory tree
+    EXPLAIN WHAT VARIABLES ARE
     """
-    import fnmatch, os, string
 
     # initialize
     result = []
@@ -65,36 +73,54 @@ def parse_arguments(testing=False):
 
     return parser.parse_args()
 
+# IN THE END, BREAK OUT INTO A MODULE
 
-class featdirClass:
-    # this is the main class for the project
-    # defines class and methods for working with feat directories
-    # this one should define a generic feat directory class that
-    # extends to both .feat and .gfeat directories
-    # we can then create separate derived classes for each
+# class methods should be lower_lower
+#
+class Featdir:
+    """
+    this is the main class for the project
+    defines class and methods for working with feat directories
+    this one should define a generic feat directory class that
+    extends to both .feat and .gfeat directories
+    we can then create separate derived classes for each
+
+    DESCRIBE METHODS AND USAGE
+    """
+
+    # MOVE VARIABLES DEFINITIONS TO HERE
+    # REMOVE SELF
+    self.dir = dir
+    self.fsf = []
+    self.featfiles=[]
+    self.featfiles_dict={}
+    self.has_statsdir=False
+    self.has_regdir=False
+    self.statsfiles=[]
+    self.regfiles=[]
 
     def __init__(self,dir):
-        self.dir = dir
-        self.fsf = []
-        self.featfiles=[]
-        self.featfiles_dict={}
-        self.has_statsdir=False
-        self.has_regdir=False
-        self.statsfiles=[]
-        self.regfiles=[]
+        # INIT SHOULD CALL LOADFEAT
+        self.loadFeatDir(dir)
 
     def loadFeatDir(self):
         """
         specify a feat directory and get its file listing
+
+        Throws IOError...
+
         """
         if not os.path.exists(self.dir):
-            print '%s does not exist'%self.dir
-            return None
+            raise IOError('%s does not exist'%self.dir)
         if not os.path.exists(os.path.join(self.dir,'design.fsf')):
             print '%s does not appear to be a valid feat dir :'%self.dir
             return None
 
         self.featfiles=Walk(self.dir)
+
+    # get rid of these specific loaders in favor of a single more powerful loader
+    # also replace Walk with os.listdir() since we don't need recursive
+    # check with os.path.isfile()
 
     def loadFeatRegDir(self):
         """
@@ -105,7 +131,10 @@ class featdirClass:
             print 'reg dir %s does not exist'%regdir
             return None
         self.has_regdir=True
+        # should describe what this list comp should create
         self.regfiles=[i.replace('/','') for i in Walk(regdir)]
+
+    # learn about format statement instead of %
 
     def loadFeatStatsDir(self):
         """
@@ -125,6 +154,8 @@ class featdirClass:
         # create a dictionary of all the files
         for f in self.featfiles:
             self.featfiles_dict[f]=1
+        # create featfiles as an frozen set
+        # instead use if ... in set(list) to find things in featfiles
 
 
 
@@ -134,8 +165,10 @@ class featdirClass:
         """
         fsffile=os.path.join(self.dir,'design.fsf')
         if os.path.exists(fsffile):
+            # load design.fsf into a dict
             self.fsf=read_fsl_design(fsffile)
         else:
+            # raise...
             print 'problem reading design.fsf'
 
 
