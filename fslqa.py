@@ -234,9 +234,20 @@ class Featdir:
 
 #def main():
 #    args=parse_arguments(testing=True)
-fdir='/Users/poldrack/Dropbox/data/fmriqa_data/task001_run001.feat/'
+fdir='/corral-repl/utexas/poldracklab/openfmri/shared2/ds001/sub001/model/model001/task001_run001.feat'
 featdir=Featdir(fdir)
 featdir.run_all_checks()
+
+desmtx=featdir.desmtx.mat
+r1=numpy.linalg.lstsq(desmtx[:,1:],desmtx[:,0])
+
+ss_total=numpy.sum((desmtx[:,0]-numpy.mean(desmtx[:,0]))**2)
+y_pred=numpy.dot(desmtx[:,1:],r1[0])
+
+ss_model=numpy.sum((y_pred - numpy.mean(y_pred))**2)
+ss_resid=numpy.sum((desmtx[:,0] - y_pred)**2)
+rsquared=1.0-(ss_resid/ss_total)
+vif=1.0 / (1.0 - rsquared)
 
 #if __name__ == '__main__':
 #    main()
