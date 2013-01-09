@@ -249,5 +249,19 @@ ss_resid=numpy.sum((desmtx[:,0] - y_pred)**2)
 rsquared=1.0-(ss_resid/ss_total)
 vif=1.0 / (1.0 - rsquared)
 
+# check for double gamma
+ncons=featdir.fsf['fmri(ncon_orig)']
+con=1
+
+# is it a motion parameter - if so, should be zero, otherwise should be 3
+if featdir.fsf['fmri(evtitle%d)'%con].find('motpar')>-1:
+    # is a motion parameter
+    
+    if not featdir.fsf['fmri(convolve1)'] == 0:
+        print 'should be zero'
+else:
+    if not featdir.fsf['fmri(convolve1)'] == 3:
+        print 'should be 3'
+    
 #if __name__ == '__main__':
 #    main()
