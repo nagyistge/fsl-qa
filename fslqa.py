@@ -35,11 +35,11 @@ def parse_arguments(testing=False):
 
 def load_dir(directory_name):
     """
-    specify a directory and return its file listing
+specify a directory and return its file listing
 
-    Throws IOError if directory doesn't exist
+Throws IOError if directory doesn't exist
 
-    """
+"""
     if not os.path.exists(directory_name):
         raise IOError('%s does not exist'%directory_name)
 
@@ -55,29 +55,28 @@ def load_dir(directory_name):
 
 class Featdir:
     """
-    this is the main class for the project
-    defines class and methods for working with feat directories
-    this one should define a generic feat directory class that
-    extends to both .feat and .gfeat directories
-    we can then create separate derived classes for each
+this is the main class for the project
+defines class and methods for working with feat directories
+this one should define a generic feat directory class that
+extends to both .feat and .gfeat directories
+we can then create separate derived classes for each
 
-    DESCRIBE METHODS AND USAGE
-    """
+"""
 
     # CLASS VARIABLE DEFINITIONS
 
-    dir = ''        # main feat directory
-    fsf = []        # dict containing fsf info
-    desmtx = []     # design matrix
-    featfiles=[]    # set of files in feat dir
-    featdir_subdirs=[]    # subdirs in feat dir
+    dir = '' # main feat directory
+    fsf = [] # dict containing fsf info
+    desmtx = [] # design matrix
+    featfiles=[] # set of files in feat dir
+    featdir_subdirs=[] # subdirs in feat dir
     has_statsdir=False
     has_regdir=False
     has_regstddir=False
-    statsfiles=[]   # set of files in stats dir
-    regfiles=[]     # set of files in reg dir
-    regstdfiles=[]     # set of files in reg_standard dir
-    warnings=[]         # list of warnings
+    statsfiles=[] # set of files in stats dir
+    regfiles=[] # set of files in reg dir
+    regstdfiles=[] # set of files in reg_standard dir
+    warnings=[] # list of warnings that appear after running program
 
     def __init__(self,dir):
         # INIT SHOULD CALL LOADFEAT
@@ -116,8 +115,8 @@ class Featdir:
 
     def is_valid_featdir(self):
         """
-        check wither self.dir is a valid feat dir by looking for design.fsf
-        """
+check wither self.dir is a valid feat dir by looking for design.fsf
+"""
         if not os.path.exists(os.path.join(self.dir,'design.fsf')):
             return False
         else:
@@ -125,8 +124,8 @@ class Featdir:
 
     def load_fsf(self):
         """
-        load the design.fsf file
-        """
+load the design.fsf file
+"""
         fsffile=os.path.join(self.dir,'design.fsf')
         if os.path.exists(fsffile):
             # load design.fsf into a dict
@@ -136,8 +135,8 @@ class Featdir:
 
     def load_desmtx(self):
         """
-        load the design.mat file
-        """
+load the design.mat file
+"""
         desmatfile=os.path.join(self.dir,'design.mat')
         if os.path.exists(desmatfile):
             # load design.mat into a design matrix object (matrix is in self.desmtx.mat)
@@ -160,13 +159,13 @@ class Featdir:
 
     def check_deleted_volumes(self):
         """
-        check whether volumes were deleted
-        this is only necessary if they estimated the motion parameters
-        ahead of time and are adding them manually, since delete volumes
-        deletes volumes for the beginning, but if the motion parameter series
-        are too long, it trims from the end.
+check whether volumes were deleted
+this is only necessary if they estimated the motion parameters
+ahead of time and are adding them manually, since delete volumes
+deletes volumes for the beginning, but if the motion parameter series
+are too long, it trims from the end.
 
-        """
+"""
         if featdir.fsf['fmri(ndelete)']==0:
             return False
         else:
@@ -175,9 +174,9 @@ class Featdir:
 
     def check_preproc_settings(self):
         """
-        If input data include _brain and or _mcf_brain extensions,
-        double check that the user turned off mcflirt and bet in the GUI.
-        """
+If input data include _brain and or _mcf_brain extensions,
+double check that the user turned off mcflirt and bet in the GUI.
+"""
         boldfile=os.path.basename(self.fsf['feat_files'])
         if boldfile.find('_mcf')>0 and self.fsf['fmri(mc)']==1:
             self.warnings.append('_mcf file was used as input but mcflirt was turned on')
@@ -186,13 +185,11 @@ class Featdir:
 
     def check_model_settings(self):
         """
-        - Verify that prewhitening was used
-        - Verify that both data and all EVs in design matrix have been highpass filtered
-        """
+- Verify that prewhitening was used
+- Verify that both data and all EVs in design matrix have been highpass filtered
+"""
 
         # check for highpass filtering of data and EVs
-
-        # Mark - please write
 
         # check for prewhitening
         if self.fsf['fmri(prewhiten_yn)']==0:
@@ -200,68 +197,99 @@ class Featdir:
 
     def check_design(self):
         """
-        - Calculate the VIFs (Variance Inflation Factors)  for the full design matrix
-        to check for collinearities.  This approach is nice as it will catch
-        collinearities that arise from linear combinations of EVs, not just
-        pairwise correlations of evs. see http://en.wikipedia.org/wiki/Variance_inflation_factor
+- Calculate the VIFs (Variance Inflation Factors) for the full design matrix
+to check for collinearities. This approach is nice as it will catch
+collinearities that arise from linear combinations of EVs, not just
+pairwise correlations of evs. see http://en.wikipedia.org/wiki/Variance_inflation_factor
 
-        - Verify that the double gamma HRF was used for evs that use convolution.
-        The single gamma is the default, but can lead to overestimates in activation.
+- Verify that the double gamma HRF was used for evs that use convolution.
+The single gamma is the default, but can lead to overestimates in activation.
 
-        """
-        return
-        # compute VIF from self.desmtx.mat
+"""
+        # compute VIF from self.desmtx.mat by iteration
+        # through all of the parameters (columns).
+        # Iterate through each column of the matrix by 
+        # using a boolean array index with compress.
+	# Collect each parameter's VIF in par_vif using 
+        # the getVIF helper function below.
+	mtx=self.desmtx.mat
+	par_vif=[]
+	numcol=mtx.shape[1]
 
-        # Mark - please write
-
+	for par in range(numcol):
+	    idxcol=numpy.ones( ( 1 , numcol ) )[0]
+	    idxcol[par]=0
+            restMat=numpy.compress(idxcol,mtx,axis=1)
+	    parCol=mtx[:,par]
+	    par_vif.append(self.getVIF(restMat,parCol))
+       
         # check for double gamma HRF
+	# Gather corresponding keys, check if one-to-one.
+	# Assuming evtitle and convolve go from 1-10
+	conKeys=[]
+	evKeys=[]
 
-        # Mark - please write
+	for key in self.fsf.keys():
+	    if ("convolve" in key and "_" not in key):
+		conKeys.append(key)
+	    elif "evtitle" in key:
+		evKeys.append(key)
+	if len(conKeys) != len(evKeys):
+	    self.warnings.append("The number of convolve keys does not equal the "+
+				 " number of evtitle keys in fsf dictionary")
+        idxMotPar=[(ev.split(")")[0][len(ev)-2:]) for ev in evKeys if "motpar" in self.fsf[ev]]
+	for key in conKeys:
+	    ikey=key.split(")")[0][len(key)-2:]
+	    if ikey in idxMotPar:
+	        if not featdir.fsf[key] == 0:
+		    print " %s should be set to 0 " %key
+	    else:
+		if not featdir.fsf[key] == 3:
+	            print " %s should be set to 3 " %key
+	return par_vif	
+
+    def getVIF(self,mat,col):
+	"""
+Helper function to calculate VIF for given col using matrix(matrix w/o col)
+"""
+	
+	#Initially written by Dr.Poldrack
+	r1=numpy.linalg.lstsq(mat,col)
+	ss_total=numpy.sum((col-numpy.mean(col))**2)
+	y_pred=numpy.dot(mat,r1[0])
+	ss_model=numpy.sum((y_pred - numpy.mean(y_pred))**2)
+        ss_resid=numpy.sum((col - y_pred)**2)
+	rsquared=1.0-(ss_resid/ss_total)
+	vif=1.0 / (1.0 - rsquared)
+
+	return vif
+	
 
     def check_stats_files(self):
         """
-        Check files in the stats directory
-        - make sure that the number of stats files matches that expected from fsf
-        - check each nii.gz file to make sure it's not all zeros
-        """
+Check files in the stats directory
+- make sure that the number of stats files matches that expected from fsf
+- check each nii.gz file to make sure it's not all zeros
+"""
         return
 
     def check_mask(self):
         """
-        Check mask to make sure it has an appropriate number of nonzero voxels
-        """
+Check mask to make sure it has an appropriate number of nonzero voxels
+"""
         return
 
 #def main():
-#    args=parse_arguments(testing=True)
-fdir='/corral-repl/utexas/poldracklab/openfmri/shared2/ds001/sub001/model/model001/task001_run001.feat'
+# args=parse_arguments(testing=True)
+fdir="/home1/02105/msandan/data/task001_run001.feat"
+#fdir='/corral-repl/utexas/poldracklab/openfmri/shared2/ds001/sub001/model/model001/task001_run001.feat'
 featdir=Featdir(fdir)
 featdir.run_all_checks()
-
 desmtx=featdir.desmtx.mat
-r1=numpy.linalg.lstsq(desmtx[:,1:],desmtx[:,0])
-
-ss_total=numpy.sum((desmtx[:,0]-numpy.mean(desmtx[:,0]))**2)
-y_pred=numpy.dot(desmtx[:,1:],r1[0])
-
-ss_model=numpy.sum((y_pred - numpy.mean(y_pred))**2)
-ss_resid=numpy.sum((desmtx[:,0] - y_pred)**2)
-rsquared=1.0-(ss_resid/ss_total)
-vif=1.0 / (1.0 - rsquared)
-
-# check for double gamma
-ncons=featdir.fsf['fmri(ncon_orig)']
-con=1
-
-# is it a motion parameter - if so, should be zero, otherwise should be 3
-if featdir.fsf['fmri(evtitle%d)'%con].find('motpar')>-1:
-    # is a motion parameter
-    
-    if not featdir.fsf['fmri(convolve1)'] == 0:
-        print 'should be zero'
-else:
-    if not featdir.fsf['fmri(convolve1)'] == 3:
-        print 'should be 3'
+print "Running check_design() method:"
+featdir.check_design()
+print "All warnings:"
+featdir.warnings
     
 #if __name__ == '__main__':
-#    main()
+# main()
