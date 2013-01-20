@@ -216,13 +216,13 @@ The single gamma is the default, but can lead to overestimates in activation.
         # the getVIF helper function below.
 	mtx=self.desmtx.mat
 	numcol=mtx.shape[1]
-
+        self.VIF=numpy.zeros(numcol)
+        
 	for par in range(numcol):
-	    idxcol=numpy.ones( ( 1 , numcol ) )[0]
-	    idxcol[par]=0
-            restMat=numpy.compress(idxcol,mtx,axis=1)
+	    idxcol=[i for i in range(numcol) if i != par]
+            restMat=mtx[:,idxcol]
 	    parCol=mtx[:,par]
-	    self.VIF.append(self.getVIF(restMat,parCol))
+	    self.VIF[par]=self.getVIF(restMat,parCol)
        
         # check for double gamma HRF
 	# Gather corresponding keys, check if one-to-one.
