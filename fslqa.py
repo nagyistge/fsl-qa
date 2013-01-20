@@ -77,6 +77,7 @@ we can then create separate derived classes for each
     regfiles=[] # set of files in reg dir
     regstdfiles=[] # set of files in reg_standard dir
     warnings=[] # list of warnings that appear after running program
+    VIF=[]
 
     def __init__(self,dir):
         # INIT SHOULD CALL LOADFEAT
@@ -156,6 +157,7 @@ load the design.mat file
         self.check_design()
         self.check_stats_files()
         self.check_mask()
+ 
 
     def check_deleted_volumes(self):
         """
@@ -213,7 +215,6 @@ The single gamma is the default, but can lead to overestimates in activation.
 	# Collect each parameter's VIF in par_vif using 
         # the getVIF helper function below.
 	mtx=self.desmtx.mat
-	par_vif=[]
 	numcol=mtx.shape[1]
 
 	for par in range(numcol):
@@ -221,7 +222,7 @@ The single gamma is the default, but can lead to overestimates in activation.
 	    idxcol[par]=0
             restMat=numpy.compress(idxcol,mtx,axis=1)
 	    parCol=mtx[:,par]
-	    par_vif.append(self.getVIF(restMat,parCol))
+	    self.VIF.append(self.getVIF(restMat,parCol))
        
         # check for double gamma HRF
 	# Gather corresponding keys, check if one-to-one.
@@ -246,7 +247,7 @@ The single gamma is the default, but can lead to overestimates in activation.
 	    else:
 		if not featdir.fsf[key] == 3:
 	            print " %s should be set to 3 " %key
-	return par_vif	
+
 
     def getVIF(self,mat,col):
 	"""
@@ -281,8 +282,8 @@ Check mask to make sure it has an appropriate number of nonzero voxels
 
 #def main():
 # args=parse_arguments(testing=True)
-fdir="/home1/02105/msandan/data/task001_run001.feat"
-#fdir='/corral-repl/utexas/poldracklab/openfmri/shared2/ds001/sub001/model/model001/task001_run001.feat'
+#fdir="/home1/02105/msandan/data/task001_run001.feat"
+fdir='/corral-repl/utexas/poldracklab/openfmri/shared2/ds006A/sub001/model/model001/task001_run001.feat'
 featdir=Featdir(fdir)
 featdir.run_all_checks()
 desmtx=featdir.desmtx.mat
