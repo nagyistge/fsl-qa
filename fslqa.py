@@ -243,10 +243,10 @@ The single gamma is the default, but can lead to overestimates in activation.
 	    ikey=key.split(")")[0][len(key)-2:]
 	    if ikey in idxMotPar:
 	        if not featdir.fsf[key] == 0:
-		    print " %s should be set to 0 " %key
+		    self.warning.append("HRFwarning: %s should be set to 0 " %key)
 	    else:
 		if not featdir.fsf[key] == 3:
-	            print " %s should be set to 3 " %key
+	            self.warning.append(" HRFwarning: %s should be set to 3 " %key)
 
 
     def getVIF(self,mat,col):
@@ -272,12 +272,21 @@ Check files in the stats directory
 - make sure that the number of stats files matches that expected from fsf
 - check each nii.gz file to make sure it's not all zeros
 """
+        # Mark: first, look inside the stats subdirectory in the feat dir
+        # and count how many files it has that are called "pe*.nii.gz" and "zstat*.nii.gz"
+
+        # then, open each of these files using nibabel.load(filename).get_data() and make
+        # sure that there are nonzero data points in the file
+        
         return
 
     def check_mask(self):
         """
 Check mask to make sure it has an appropriate number of nonzero voxels
 """
+        # Mark: load the mask.nii.gz file from the featdir
+        # and count the number of nonzero entries in the matrix
+        
         return
 
 #def main():
