@@ -114,7 +114,7 @@ class Featdir:
             self.get_evs()
             self.get_contrasts()
         else:
-            self.analysisLevel=2
+            self.analysisLevel=self.fsf['fmri(level)']
 
 
     # set up some methods related to loading and checking directories
@@ -348,7 +348,7 @@ class Featdir:
             maskimgfile=os.path.join(featdir.dir,'mask.nii.gz')
             img=nibabel.load(maskimgfile)
             data=img.get_data()
-            self.maskvox=numpy.sum(data)
+            self.maskvox=numpy.sum(data>0)
         except:
             self.warnings.append('problem loading mask')
 
@@ -367,7 +367,7 @@ class Featdir:
             log=[]
             
         for l in log:
-            if l.lower().find('error')>-1 or l.lower().find('warning')>-1:
+            if l.lower().find('error')>-1 or l.lower().find('warning')>-1 or l.lower().find('exception')>-1:
                 self.warnings.append('LOG: '+l)
         
         
