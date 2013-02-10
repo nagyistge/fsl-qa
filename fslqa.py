@@ -35,11 +35,9 @@ def parse_arguments(testing=False):
 
 def load_dir(directory_name):
     """
-specify a directory and return its file listing
-
-Throws IOError if directory doesn't exist
-
-"""
+    specify a directory and return its file listing
+    Throws IOError if directory doesn't exist
+    """
     if not os.path.exists(directory_name):
         raise IOError('%s does not exist'%directory_name)
 
@@ -55,13 +53,12 @@ Throws IOError if directory doesn't exist
 
 class Featdir:
     """
-this is the main class for the project
-defines class and methods for working with feat directories
-this one should define a generic feat directory class that
-extends to both .feat and .gfeat directories
-we can then create separate derived classes for each
-
-"""
+    this is the main class for the project
+    defines class and methods for working with feat directories
+    this one should define a generic feat directory class that
+    extends to both .feat and .gfeat directories
+    we can then create separate derived classes for each
+    """
 
     # CLASS VARIABLE DEFINITIONS
 
@@ -83,6 +80,7 @@ we can then create separate derived classes for each
     nevs=[]
     ncontrasts=[]
     VIFthresh=5.0
+    maskvox=[]
     
     def __init__(self,dir):
         # INIT SHOULD CALL LOADFEAT
@@ -123,8 +121,8 @@ we can then create separate derived classes for each
 
     def is_valid_featdir(self):
         """
-check wither self.dir is a valid feat dir by looking for design.fsf
-"""
+        check wither self.dir is a valid feat dir by looking for design.fsf
+        """
         if not os.path.exists(os.path.join(self.dir,'design.fsf')):
             return False
         else:
@@ -132,8 +130,8 @@ check wither self.dir is a valid feat dir by looking for design.fsf
 
     def load_fsf(self):
         """
-load the design.fsf file
-"""
+        load the design.fsf file
+        """
         fsffile=os.path.join(self.dir,'design.fsf')
         if os.path.exists(fsffile):
             # load design.fsf into a dict
@@ -143,8 +141,8 @@ load the design.fsf file
 
     def load_desmtx(self):
         """
-load the design.mat file
-"""
+        load the design.mat file
+        """
         desmatfile=os.path.join(self.dir,'design.mat')
         if os.path.exists(desmatfile):
             # load design.mat into a design matrix object (matrix is in self.desmtx.mat)
@@ -191,39 +189,41 @@ load the design.mat file
         self.check_design()
         self.check_stats_files()
         self.check_mask()
+        self.check_logfiles()
  
 
     def check_deleted_volumes(self):
         """
-check whether volumes were deleted
-this is only necessary if they estimated the motion parameters
-ahead of time and are adding them manually, since delete volumes
-deletes volumes for the beginning, but if the motion parameter series
-are too long, it trims from the end.
-
-"""
+        check whether volumes were deleted
+        this is only necessary if they estimated the motion parameters
+        ahead of time and are adding them manually, since delete volumes
+        deletes volumes for the beginning, but if the motion parameter series
+        are too long, it trims from the end.
+        """
         if featdir.fsf['fmri(ndelete)']==0:
             return False
         else:
             self.warnings.append('ndelete is >0: if you added motion params manually, check their length')
             return True
 
+
     def check_preproc_settings(self):
         """
-If input data include _brain and or _mcf_brain extensions,
-double check that the user turned off mcflirt and bet in the GUI.
-"""
+        If input data include _brain and or _mcf_brain extensions,
+        double check that the user turned off mcflirt and bet in the GUI.
+        """
         boldfile=os.path.basename(self.fsf['feat_files'])
         if boldfile.find('_mcf')>0 and self.fsf['fmri(mc)']==1:
             self.warnings.append('_mcf file was used as input but mcflirt was turned on')
         if boldfile.find('_brain')>0 and self.fsf['fmri(bet_yn)']==1:
             self.warnings.append('_brain file was used as input but bet was turned on')
 
+
     def check_model_settings(self):
         """
-- Verify that prewhitening was used
-- Verify that both data and all EVs in design matrix have been highpass filtered
-"""
+        - Verify that prewhitening was used
+        - Verify that both data and all EVs in design matrix have been highpass filtered
+        """
 
         # check for highpass filtering of data and EVs
 
@@ -231,22 +231,23 @@ double check that the user turned off mcflirt and bet in the GUI.
         if self.fsf['fmri(prewhiten_yn)']==0:
             self.warnings.append('prewhitening was not turned on')
 
+
     def check_design(self):
         """
-- Calculate the VIFs (Variance Inflation Factors) for the full design matrix
-to check for collinearities. This approach is nice as it will catch
-collinearities that arise from linear combinations of EVs, not just
-pairwise correlations of evs. see http://en.wikipedia.org/wiki/Variance_inflation_factor
+        - Calculate the VIFs (Variance Inflation Factors) for the full design matrix
+        to check for collinearities. This approach is nice as it will catch
+        collinearities that arise from linear combinations of EVs, not just
+        pairwise correlations of evs. see http://en.wikipedia.org/wiki/Variance_inflation_factor
 
-- Verify that the double gamma HRF was used for evs that use convolution.
-The single gamma is the default, but can lead to overestimates in activation.
+        - Verify that the double gamma HRF was used for evs that use convolution.
+        The single gamma is the default, but can lead to overestimates in activation.
 
-"""
+        """
         # compute VIF from self.desmtx.mat by iteration
         # through all of the parameters (columns).
         # Iterate through each column of the matrix by 
         # using a boolean array index with compress.
-	# Collect each parameter's VIF in par_vif using 
+	    # Collect each parameter's VIF in par_vif using 
         # the getVIF helper function below.
         mtx=self.desmtx.mat
     	numcol=mtx.shape[1]
@@ -261,8 +262,8 @@ The single gamma is the default, but can lead to overestimates in activation.
                 self.warnings.append('col %d: VIF over threshold (%f)'%(par,self.VIF[par]))
        
         # check for double gamma HRF
-	# Gather corresponding keys, check if one-to-one.
-	# Assuming evtitle and convolve go from 1-10
+        # Gather corresponding keys, check if one-to-one.
+        # Assuming evtitle and convolve go from 1-10
         conKeys=[]
         evKeys=[]
 
@@ -286,11 +287,11 @@ The single gamma is the default, but can lead to overestimates in activation.
 
 
     def getVIF(self,mat,col):
-	"""
-Helper function to calculate VIF for given col using matrix(matrix w/o col)
-"""
+        """
+        Helper function to calculate VIF for given col using matrix(matrix w/o col)
+        """
 	
-	#Initially written by Dr.Poldrack
+        #Initially written by Dr.Poldrack
         r1=numpy.linalg.lstsq(mat,col)
         ss_total=numpy.sum((col-numpy.mean(col))**2)
         y_pred=numpy.dot(mat,r1[0])
@@ -304,10 +305,10 @@ Helper function to calculate VIF for given col using matrix(matrix w/o col)
 
     def check_stats_files(self):
         """
-Check files in the stats directory
-- make sure that the number of stats files matches that expected from fsf
-- check each pe and zstat file to make sure it's not all zeros
-"""
+        Check files in the stats directory
+        - make sure that the number of stats files matches that expected from fsf
+        - check each pe and zstat file to make sure it's not all zeros
+        """
         
         for ev in range(1,self.nevs+1):
             imgfile=os.path.join(featdir.dir,'stats/pe%d.nii.gz'%ev)
@@ -335,17 +336,42 @@ Check files in the stats directory
                 self.contrasts[con]['has_z']=0
                 self.warnings.append('problem loading %s'%imgfile)
      
-        return
 
     def check_mask(self):
         """
-Check mask to make sure it has an appropriate number of nonzero voxels
-"""
+        Check mask to make sure it has an appropriate number of nonzero voxels
+        """
         # Mark: load the mask.nii.gz file from the featdir
         # and count the number of nonzero entries in the matrix
         
-        return
+        try:
+            maskimgfile=os.path.join(featdir.dir,'mask.nii.gz')
+            img=nibabel.load(maskimgfile)
+            data=img.get_data()
+            self.maskvox=numpy.sum(data)
+        except:
+            self.warnings.append('problem loading mask')
 
+
+    def check_logfiles(self):
+        """
+        load log file and check for any errors or warnings
+        """
+        logfile=os.path.join(featdir.dir,'report_log.html')
+        try:
+            f=open(logfile)
+            log=[l.strip() for l in f.readlines()]
+            f.close()
+        except:
+            self.warnings.append('problem opening logfile')
+            log=[]
+            
+        for l in log:
+            if l.lower().find('error')>-1 or l.lower().find('warning')>-1:
+                self.warnings.append('LOG: '+l)
+        
+        
+            
 #def main():
 # args=parse_arguments(testing=True)
 #fdir="/home1/02105/msandan/data/task001_run001.feat"
