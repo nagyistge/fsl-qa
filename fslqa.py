@@ -81,6 +81,7 @@ class Featdir:
     ncontrasts=[]
     VIFthresh=5.0
     maskvox=[]
+    verbose=True
     
     def __init__(self,dir):
         # INIT SHOULD CALL LOADFEAT
@@ -126,6 +127,8 @@ class Featdir:
         if not os.path.exists(os.path.join(self.dir,'design.fsf')):
             return False
         else:
+            if self.verbose:
+                print 'design.fsf is valid'
             return True
 
     def load_fsf(self):
@@ -136,6 +139,8 @@ class Featdir:
         if os.path.exists(fsffile):
             # load design.fsf into a dict
             self.fsf=mvpa2.misc.fsl.base.read_fsl_design(fsffile)
+            if self.verbose:
+                print 'loaded design.fsf file successfully'
         else:
             raise IOError('problem reading design.fsf')
 
@@ -147,6 +152,8 @@ class Featdir:
         if os.path.exists(desmatfile):
             # load design.mat into a design matrix object (matrix is in self.desmtx.mat)
             self.desmtx=mvpa2.misc.fsl.base.FslGLMDesign(desmatfile)
+            if self.verbose:
+                print 'loaded design.mat file successfully'
         else:
             raise IOError('problem reading design.mat')
 
@@ -164,7 +171,9 @@ class Featdir:
                           'deriv':self.fsf['fmri(deriv_yn%d)'%ev],
                           'convolve':self.fsf['fmri(convolve%d)'%ev]
                          }
-        
+        if self.verbose:
+            print 'found %d evs'%len(self.evs)
+            
     def get_contrasts(self):
         """ 
         get all of the contrasts
@@ -177,6 +186,8 @@ class Featdir:
             for ev in range(1,self.nevs+1):
                 self.contrasts[con]['contrast'].append(self.fsf['fmri(con_orig%d.%d)'%(con,ev)])
             
+        if self.verbose:
+            print 'found %d contrasts'%len(self.contrasts)
 
     # check lots of different analysis features
     # whenever a problem is found, append a warning message to
@@ -190,6 +201,7 @@ class Featdir:
         self.check_stats_files()
         self.check_mask()
         self.check_logfiles()
+        self.check_datalength()
  
 
     def check_deleted_volumes(self):
@@ -201,6 +213,8 @@ class Featdir:
         are too long, it trims from the end.
         """
         if featdir.fsf['fmri(ndelete)']==0:
+            if self.verbose:
+                print 'no deleted volumes'
             return False
         else:
             self.warnings.append('ndelete is >0: if you added motion params manually, check their length')
@@ -213,10 +227,16 @@ class Featdir:
         double check that the user turned off mcflirt and bet in the GUI.
         """
         boldfile=os.path.basename(self.fsf['feat_files'])
+        warn=False
         if boldfile.find('_mcf')>0 and self.fsf['fmri(mc)']==1:
             self.warnings.append('_mcf file was used as input but mcflirt was turned on')
+            warn=True
         if boldfile.find('_brain')>0 and self.fsf['fmri(bet_yn)']==1:
             self.warnings.append('_brain file was used as input but bet was turned on')
+            warn=True
+            
+        if self.verbose and not warn:
+            print 'preprocessing settings appear to match data'
 
 
     def check_model_settings(self):
@@ -230,6 +250,9 @@ class Featdir:
         # check for prewhitening
         if self.fsf['fmri(prewhiten_yn)']==0:
             self.warnings.append('prewhitening was not turned on')
+            
+        elif self.verbose:
+            print 'prewhitening is enabled'
 
 
     def check_design(self):
@@ -252,6 +275,7 @@ class Featdir:
         mtx=self.desmtx.mat
     	numcol=mtx.shape[1]
         self.VIF=numpy.zeros(numcol)
+        badVIF=False
         
         for par in range(numcol):
             idxcol=[i for i in range(numcol) if i != par]
@@ -260,13 +284,15 @@ class Featdir:
             self.VIF[par]=self.getVIF(restMat,parCol)
             if self.VIF[par]>self.VIFthresh:
                 self.warnings.append('col %d: VIF over threshold (%f)'%(par,self.VIF[par]))
-       
+                badVIF=True
+        if self.verbose and not badVIF:
+            print 'VIF values all below threshold (max = %f, thresh = %f)'%(numpy.max(self.VIF), self.VIFthresh)
         # check for double gamma HRF
         # Gather corresponding keys, check if one-to-one.
         # Assuming evtitle and convolve go from 1-10
         conKeys=[]
         evKeys=[]
-
+        badHRF=False
         for key in self.fsf.keys():
             if ("convolve" in key and "_" not in key):
                 conKeys.append(key)
@@ -275,17 +301,22 @@ class Featdir:
         if len(conKeys) != len(evKeys):
             self.warnings.append("The number of convolve keys does not equal the "+
 				 " number of evtitle keys in fsf dictionary")
+
         idxMotPar=[(ev.split(")")[0][len(ev)-2:]) for ev in evKeys if "motpar" in self.fsf[ev]]
         for key in conKeys:
             ikey=key.split(")")[0][len(key)-2:]
             if ikey in idxMotPar:
                 if not featdir.fsf[key] == 0:
                     self.warning.append("HRFwarning: %s should be set to 0 " %key)
+                    badHRF=True
             else:
                 if not featdir.fsf[key] == 3:
                     self.warning.append(" HRFwarning: %s should be set to 3 " %key)
-
-
+                    badHRF=True
+        if not badHRF and self.verbose:
+            print 'HRF settings appear correct'
+            
+            
     def getVIF(self,mat,col):
         """
         Helper function to calculate VIF for given col using matrix(matrix w/o col)
@@ -310,6 +341,7 @@ class Featdir:
         - check each pe and zstat file to make sure it's not all zeros
         """
         
+        badPE=False
         for ev in range(1,self.nevs+1):
             imgfile=os.path.join(featdir.dir,'stats/pe%d.nii.gz'%ev)
             try:
@@ -322,7 +354,11 @@ class Featdir:
             except:
                 self.evs[ev]['has_pe']=0
                 self.warnings.append('problem loading %s'%imgfile)
- 
+                badPE=True
+        if self.verbose and not badPE:
+            print 'all pe images are present and loadable'
+        
+        badcon=False
         for con in range(1,self.ncontrasts+1):
             imgfile=os.path.join(featdir.dir,'stats/zstat%d.nii.gz'%con)
             try:
@@ -335,6 +371,9 @@ class Featdir:
             except:
                 self.contrasts[con]['has_z']=0
                 self.warnings.append('problem loading %s'%imgfile)
+                badcon=True
+        if self.verbose and not badcon:
+            print 'all zstats are present and loadable'
      
 
     def check_mask(self):
@@ -349,6 +388,8 @@ class Featdir:
             img=nibabel.load(maskimgfile)
             data=img.get_data()
             self.maskvox=numpy.sum(data>0)
+            if self.verbose:
+                print 'mask loaded (%d in-mask voxels)'%self.maskvox
         except:
             self.warnings.append('problem loading mask')
 
@@ -366,11 +407,33 @@ class Featdir:
             self.warnings.append('problem opening logfile')
             log=[]
             
+        badlog=False
         for l in log:
             if l.lower().find('error')>-1 or l.lower().find('warning')>-1 or l.lower().find('exception')>-1:
                 self.warnings.append('LOG: '+l)
+                badlog=True
+                
+        if self.verbose and not badlog:
+            print 'No errors or warnings found in report_log.html'
         
+    def check_datalength(self):
+        """
+        check length of data file and make sure it matches setting in fsf
+        """
         
+        datafilename=os.path.join(self.dir,'filtered_func_data.nii.gz')
+        try:
+            datafile=nibabel.load(datafilename)
+            nvols_actual=datafile.shape[3]
+        except:
+            self.warnings.append('problem loading filtered_func_data')
+            return
+        
+        if not nvols_actual == featdir.fsf['fmri(npts)']:
+            self.warnings.append('nvols_actual (%d) does not match npts in fsf (%d)'%(nvols_actual,featdir.fsf['fmri(npts)']))
+        elif self.verbose:
+            print 'nvols_actual (%d) matches npts in fsf (%d)'%(nvols_actual,featdir.fsf['fmri(npts)'])
+            
             
 #def main():
 # args=parse_arguments(testing=True)
@@ -380,14 +443,12 @@ fdir='/Users/poldrack/data/fmriqa_data/task001_run001.feat'
 featdir=Featdir(fdir)
 featdir.run_all_checks()
 desmtx=featdir.desmtx.mat
-print "Running check_design() method:"
-featdir.check_design()
 if len(featdir.warnings)>0:
     print "All warnings:"
     for w in featdir.warnings:
         print w
 else:
-     print "No warnings:"
+     print "Successfully completed - No warnings"
   
 #if __name__ == '__main__':
 # main()
