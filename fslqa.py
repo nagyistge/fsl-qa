@@ -78,7 +78,12 @@ we can then create separate derived classes for each
     regstdfiles=[] # set of files in reg_standard dir
     warnings=[] # list of warnings that appear after running program
     VIF=[]
-
+    evs={}
+    contrasts={}
+    nevs=[]
+    ncontrasts=[]
+    VIFthresh=5.0
+    
     def __init__(self,dir):
         # INIT SHOULD CALL LOADFEAT
         if not os.path.exists(dir):
@@ -108,6 +113,8 @@ we can then create separate derived classes for each
         if self.fsf['fmri(level)']==1:
             self.analysisLevel=1
             self.load_desmtx()
+            self.get_evs()
+            self.get_contrasts()
         else:
             self.analysisLevel=2
 
@@ -145,6 +152,33 @@ load the design.mat file
         else:
             raise IOError('problem reading design.mat')
 
+
+    def get_evs(self):
+        """
+        get all of teh evs
+        TBD: figure out which are confounds
+        """
+        self.nevs=self.fsf['fmri(evs_orig)']
+        for ev in range(1,self.nevs+1):
+            self.evs[ev]={'title':self.fsf['fmri(evtitle%d)'%ev],
+                          'tempfilt':self.fsf['fmri(tempfilt_yn%d)'%ev],
+                          'shape':self.fsf['fmri(shape%d)'%ev],
+                          'deriv':self.fsf['fmri(deriv_yn%d)'%ev],
+                          'convolve':self.fsf['fmri(convolve%d)'%ev]
+                         }
+        
+    def get_contrasts(self):
+        """ 
+        get all of the contrasts
+        """
+        self.ncontrasts=self.fsf['fmri(ncon_orig)']
+        for con in range(1,self.ncontrasts+1):
+            self.contrasts[con]={'title':self.fsf['fmri(conname_orig.%d)'%con],
+                                 'contrast':[],
+                                 }
+            for ev in range(1,self.nevs+1):
+                self.contrasts[con]['contrast'].append(self.fsf['fmri(con_orig%d.%d)'%(con,ev)])
+            
 
     # check lots of different analysis features
     # whenever a problem is found, append a warning message to
@@ -214,39 +248,41 @@ The single gamma is the default, but can lead to overestimates in activation.
         # using a boolean array index with compress.
 	# Collect each parameter's VIF in par_vif using 
         # the getVIF helper function below.
-	mtx=self.desmtx.mat
-	numcol=mtx.shape[1]
+        mtx=self.desmtx.mat
+    	numcol=mtx.shape[1]
         self.VIF=numpy.zeros(numcol)
         
-	for par in range(numcol):
-	    idxcol=[i for i in range(numcol) if i != par]
+        for par in range(numcol):
+            idxcol=[i for i in range(numcol) if i != par]
             restMat=mtx[:,idxcol]
-	    parCol=mtx[:,par]
-	    self.VIF[par]=self.getVIF(restMat,parCol)
+            parCol=mtx[:,par]
+            self.VIF[par]=self.getVIF(restMat,parCol)
+            if self.VIF[par]>self.VIFthresh:
+                self.warnings.append('col %d: VIF over threshold (%f)'%(par,self.VIF[par]))
        
         # check for double gamma HRF
 	# Gather corresponding keys, check if one-to-one.
 	# Assuming evtitle and convolve go from 1-10
-	conKeys=[]
-	evKeys=[]
+        conKeys=[]
+        evKeys=[]
 
-	for key in self.fsf.keys():
-	    if ("convolve" in key and "_" not in key):
-		conKeys.append(key)
-	    elif "evtitle" in key:
-		evKeys.append(key)
-	if len(conKeys) != len(evKeys):
-	    self.warnings.append("The number of convolve keys does not equal the "+
+        for key in self.fsf.keys():
+            if ("convolve" in key and "_" not in key):
+                conKeys.append(key)
+            elif "evtitle" in key:
+                evKeys.append(key)
+        if len(conKeys) != len(evKeys):
+            self.warnings.append("The number of convolve keys does not equal the "+
 				 " number of evtitle keys in fsf dictionary")
         idxMotPar=[(ev.split(")")[0][len(ev)-2:]) for ev in evKeys if "motpar" in self.fsf[ev]]
-	for key in conKeys:
-	    ikey=key.split(")")[0][len(key)-2:]
-	    if ikey in idxMotPar:
-	        if not featdir.fsf[key] == 0:
-		    self.warning.append("HRFwarning: %s should be set to 0 " %key)
-	    else:
-		if not featdir.fsf[key] == 3:
-	            self.warning.append(" HRFwarning: %s should be set to 3 " %key)
+        for key in conKeys:
+            ikey=key.split(")")[0][len(key)-2:]
+            if ikey in idxMotPar:
+                if not featdir.fsf[key] == 0:
+                    self.warning.append("HRFwarning: %s should be set to 0 " %key)
+            else:
+                if not featdir.fsf[key] == 3:
+                    self.warning.append(" HRFwarning: %s should be set to 3 " %key)
 
 
     def getVIF(self,mat,col):
@@ -255,29 +291,50 @@ Helper function to calculate VIF for given col using matrix(matrix w/o col)
 """
 	
 	#Initially written by Dr.Poldrack
-	r1=numpy.linalg.lstsq(mat,col)
-	ss_total=numpy.sum((col-numpy.mean(col))**2)
-	y_pred=numpy.dot(mat,r1[0])
-	ss_model=numpy.sum((y_pred - numpy.mean(y_pred))**2)
+        r1=numpy.linalg.lstsq(mat,col)
+        ss_total=numpy.sum((col-numpy.mean(col))**2)
+        y_pred=numpy.dot(mat,r1[0])
+        ss_model=numpy.sum((y_pred - numpy.mean(y_pred))**2)
         ss_resid=numpy.sum((col - y_pred)**2)
-	rsquared=1.0-(ss_resid/ss_total)
-	vif=1.0 / (1.0 - rsquared)
+        rsquared=1.0-(ss_resid/ss_total)
+        vif=1.0 / (1.0 - rsquared)
 
-	return vif
+        return vif
 	
 
     def check_stats_files(self):
         """
 Check files in the stats directory
 - make sure that the number of stats files matches that expected from fsf
-- check each nii.gz file to make sure it's not all zeros
+- check each pe and zstat file to make sure it's not all zeros
 """
-        # Mark: first, look inside the stats subdirectory in the feat dir
-        # and count how many files it has that are called "pe*.nii.gz" and "zstat*.nii.gz"
-
-        # then, open each of these files using nibabel.load(filename).get_data() and make
-        # sure that there are nonzero data points in the file
         
+        for ev in range(1,self.nevs+1):
+            imgfile=os.path.join(featdir.dir,'stats/pe%d.nii.gz'%ev)
+            try:
+                img=nibabel.load(imgfile)
+                data=img.get_data()
+                self.evs[ev]['has_pe']=1
+                self.evs[ev]['pe_min']=numpy.min(data)
+                self.evs[ev]['pe_max']=numpy.max(data)
+                
+            except:
+                self.evs[ev]['has_pe']=0
+                self.warnings.append('problem loading %s'%imgfile)
+ 
+        for con in range(1,self.ncontrasts+1):
+            imgfile=os.path.join(featdir.dir,'stats/zstat%d.nii.gz'%con)
+            try:
+                img=nibabel.load(imgfile)
+                data=img.get_data()
+                self.contrasts[con]['has_z']=1
+                self.contrasts[con]['z_min']=numpy.min(data)
+                self.contrasts[con]['z_max']=numpy.max(data)
+                
+            except:
+                self.contrasts[con]['has_z']=0
+                self.warnings.append('problem loading %s'%imgfile)
+     
         return
 
     def check_mask(self):
@@ -292,14 +349,19 @@ Check mask to make sure it has an appropriate number of nonzero voxels
 #def main():
 # args=parse_arguments(testing=True)
 #fdir="/home1/02105/msandan/data/task001_run001.feat"
-fdir='/corral-repl/utexas/poldracklab/openfmri/shared2/ds006A/sub001/model/model001/task001_run001.feat'
+#fdir='/corral-repl/utexas/poldracklab/openfmri/shared2/ds006A/sub001/model/model001/task001_run001.feat'
+fdir='/Users/poldrack/data/fmriqa_data/task001_run001.feat'
 featdir=Featdir(fdir)
 featdir.run_all_checks()
 desmtx=featdir.desmtx.mat
 print "Running check_design() method:"
 featdir.check_design()
-print "All warnings:"
-featdir.warnings
-    
+if len(featdir.warnings)>0:
+    print "All warnings:"
+    for w in featdir.warnings:
+        print w
+else:
+     print "No warnings:"
+  
 #if __name__ == '__main__':
 # main()
