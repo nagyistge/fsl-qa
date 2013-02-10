@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 top-level wrapper for FSL quality assurance project
 
@@ -28,7 +29,7 @@ def parse_arguments(testing=False):
     parser = argparse.ArgumentParser(description='fsl-qa')
 
     parser.add_argument('-d', dest='featdir',
-        required=required,help='feat dir for analysis')
+        required=True,help='feat dir for analysis')
     parser.add_argument('-v',dest='verbose',action='store_true',
                         help='verbose output')
     return parser.parse_args()
@@ -285,7 +286,7 @@ class Featdir:
             parCol=mtx[:,par]
             self.VIF[par]=self.getVIF(restMat,parCol)
             if self.VIF[par]>self.VIFthresh:
-                self.warnings.append('col %d: VIF over threshold (%f)'%(par,self.VIF[par]))
+                self.warnings.append('VIF over threshold (%f): col %d'%(self.VIF[par],par))
                 badVIF=True
         if self.verbose and not badVIF:
             print 'VIF values all below threshold (max = %f, thresh = %f)'%(numpy.max(self.VIF), self.VIFthresh)
