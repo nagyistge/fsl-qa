@@ -20,18 +20,17 @@ import fnmatch, string
 
 
 
-def parse_arguments(testing=False):
+def parse_arguments():
     # parse command line arguments
     # setting testing flag to true will turn off required flags
     # to allow manually running without command line flags
 
-    required=not testing
     parser = argparse.ArgumentParser(description='fsl-qa')
 
     parser.add_argument('-d', dest='featdir',
         required=True,help='feat dir for analysis')
     parser.add_argument('-v',dest='verbose',action='store_true',
-                        help='verbose output')
+        default=False,help='verbose output')
     return parser.parse_args()
 
 
@@ -439,7 +438,7 @@ class Featdir:
             
             
 def main():
-    args=parse_arguments(testing=True)
+    args=parse_arguments()
     #fdir="/home1/02105/msandan/data/task001_run001.feat"
     #fdir='/corral-repl/utexas/poldracklab/openfmri/shared2/ds006A/sub001/model/model001/task001_run001.feat'
     #fdir='/Users/poldrack/data/fmriqa_data/task001_run001.feat'
