@@ -29,7 +29,8 @@ def parse_arguments(testing=False):
 
     parser.add_argument('-d', dest='featdir',
         required=required,help='feat dir for analysis')
-
+    parser.add_argument('-v',dest='verbose',action='store_true',
+                        help='verbose output')
     return parser.parse_args()
 
 
@@ -81,10 +82,11 @@ class Featdir:
     ncontrasts=[]
     VIFthresh=5.0
     maskvox=[]
-    verbose=True
+    verbose=False
     
-    def __init__(self,dir):
+    def __init__(self,dir,verbose):
         # INIT SHOULD CALL LOADFEAT
+        self.verbose=verbose
         if not os.path.exists(dir):
             raise IOError('%s does not exist'%dir)
         self.dir=dir
@@ -212,7 +214,7 @@ class Featdir:
         deletes volumes for the beginning, but if the motion parameter series
         are too long, it trims from the end.
         """
-        if featdir.fsf['fmri(ndelete)']==0:
+        if self.fsf['fmri(ndelete)']==0:
             if self.verbose:
                 print 'no deleted volumes'
             return False
@@ -306,11 +308,11 @@ class Featdir:
         for key in conKeys:
             ikey=key.split(")")[0][len(key)-2:]
             if ikey in idxMotPar:
-                if not featdir.fsf[key] == 0:
+                if not self.fsf[key] == 0:
                     self.warning.append("HRFwarning: %s should be set to 0 " %key)
                     badHRF=True
             else:
-                if not featdir.fsf[key] == 3:
+                if not self.fsf[key] == 3:
                     self.warning.append(" HRFwarning: %s should be set to 3 " %key)
                     badHRF=True
         if not badHRF and self.verbose:
@@ -343,7 +345,7 @@ class Featdir:
         
         badPE=False
         for ev in range(1,self.nevs+1):
-            imgfile=os.path.join(featdir.dir,'stats/pe%d.nii.gz'%ev)
+            imgfile=os.path.join(self.dir,'stats/pe%d.nii.gz'%ev)
             try:
                 img=nibabel.load(imgfile)
                 data=img.get_data()
@@ -360,7 +362,7 @@ class Featdir:
         
         badcon=False
         for con in range(1,self.ncontrasts+1):
-            imgfile=os.path.join(featdir.dir,'stats/zstat%d.nii.gz'%con)
+            imgfile=os.path.join(self.dir,'stats/zstat%d.nii.gz'%con)
             try:
                 img=nibabel.load(imgfile)
                 data=img.get_data()
@@ -384,7 +386,7 @@ class Featdir:
         # and count the number of nonzero entries in the matrix
         
         try:
-            maskimgfile=os.path.join(featdir.dir,'mask.nii.gz')
+            maskimgfile=os.path.join(self.dir,'mask.nii.gz')
             img=nibabel.load(maskimgfile)
             data=img.get_data()
             self.maskvox=numpy.sum(data>0)
@@ -398,7 +400,7 @@ class Featdir:
         """
         load log file and check for any errors or warnings
         """
-        logfile=os.path.join(featdir.dir,'report_log.html')
+        logfile=os.path.join(self.dir,'report_log.html')
         try:
             f=open(logfile)
             log=[l.strip() for l in f.readlines()]
@@ -429,26 +431,30 @@ class Featdir:
             self.warnings.append('problem loading filtered_func_data')
             return
         
-        if not nvols_actual == featdir.fsf['fmri(npts)']:
-            self.warnings.append('nvols_actual (%d) does not match npts in fsf (%d)'%(nvols_actual,featdir.fsf['fmri(npts)']))
+        if not nvols_actual == self.fsf['fmri(npts)']:
+            self.warnings.append('nvols_actual (%d) does not match npts in fsf (%d)'%(nvols_actual,self.fsf['fmri(npts)']))
         elif self.verbose:
-            print 'nvols_actual (%d) matches npts in fsf (%d)'%(nvols_actual,featdir.fsf['fmri(npts)'])
+            print 'nvols_actual (%d) matches npts in fsf (%d)'%(nvols_actual,self.fsf['fmri(npts)'])
             
             
-#def main():
-# args=parse_arguments(testing=True)
-#fdir="/home1/02105/msandan/data/task001_run001.feat"
-#fdir='/corral-repl/utexas/poldracklab/openfmri/shared2/ds006A/sub001/model/model001/task001_run001.feat'
-fdir='/Users/poldrack/data/fmriqa_data/task001_run001.feat'
-featdir=Featdir(fdir)
-featdir.run_all_checks()
-desmtx=featdir.desmtx.mat
-if len(featdir.warnings)>0:
-    print "All warnings:"
-    for w in featdir.warnings:
-        print w
-else:
-     print "Successfully completed - No warnings"
+def main():
+    args=parse_arguments(testing=True)
+    #fdir="/home1/02105/msandan/data/task001_run001.feat"
+    #fdir='/corral-repl/utexas/poldracklab/openfmri/shared2/ds006A/sub001/model/model001/task001_run001.feat'
+    #fdir='/Users/poldrack/data/fmriqa_data/task001_run001.feat'
+
+    featdir=Featdir(args.featdir,args.verbose)
+
+    featdir.run_all_checks()
+    
+    print ''
+    
+    if len(featdir.warnings)>0:
+        print "Warnings:"
+        for w in featdir.warnings:
+            print w
+    else:
+        print "Successfully completed - No warnings"
   
-#if __name__ == '__main__':
-# main()
+if __name__ == '__main__':
+    main()
