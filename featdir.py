@@ -16,6 +16,19 @@ import argparse
 import mvpa2.misc.fsl.base
 import fnmatch, string
 
+def load_dir(directory_name):
+    """
+    specify a directory and return its file listing
+    Throws IOError if directory doesn't exist
+    """
+    if not os.path.exists(directory_name):
+        raise IOError('%s does not exist'%directory_name)
+
+    directory_list=os.listdir(directory_name)
+    file_list=frozenset([i for i in directory_list if os.path.isfile(os.path.join(directory_name,i))])
+    dir_list=frozenset([i for i in directory_list if os.path.isdir(os.path.join(directory_name,i))])
+
+    return file_list,dir_list
 
 
 class Featdir:
