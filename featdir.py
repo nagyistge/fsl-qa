@@ -63,7 +63,7 @@ class Featdir:
     maskvox=[]
     verbose=False
     
-    def __init__(self,dir,verbose):
+    def __init__(self,dir,verbose=False):
         # INIT SHOULD CALL LOADFEAT
         self.verbose=verbose
         if not os.path.exists(dir):
