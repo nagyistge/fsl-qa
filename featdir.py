@@ -306,6 +306,8 @@ class Featdir:
         #Initially written by Dr.Poldrack
         r1=numpy.linalg.lstsq(mat,col)
         ss_total=numpy.sum((col-numpy.mean(col))**2)
+        if ss_total==0.0:
+            return 0.0
         y_pred=numpy.dot(mat,r1[0])
         ss_model=numpy.sum((y_pred - numpy.mean(y_pred))**2)
         ss_resid=numpy.sum((col - y_pred)**2)
